@@ -1,39 +1,29 @@
 use bevy::{prelude::*, time::FixedTimestep};
-use bevy_mouse_tracking_plugin::{MousePos, MousePosPlugin, MousePosWorld};
-use rand::Rng;
+// use bevy_mouse_tracking_plugin::{MousePos, MousePosPlugin, MousePosWorld};
 
-// Defines the amount of time that should elapse between each physics step.
-const TIME_STEP: f32 = 1.0 / 60.0;
+mod boids;
+
+// Defines the update frequency of the simulation in Hz
+const GAME_FREQUENCY: f32 = 60.0;
+pub const TIME_STEP: f32 = 1.0 / GAME_FREQUENCY;
 const BACKGROUND_COLOR: Color = Color::rgb(0.0, 0.0, 0.0);
-
-const NUM_BOIDS: u32 = 100;
-const BOID_SIZE: Vec3 = Vec3::new(10., 10., 0.);
-const BOID_COLOR: Color = Color::rgb(1., 1., 1.);
-const BOID_SPEED: f32 = 500.0;
-const BOID_ACCELERATION: f32 = 10.0;
-const MIN_BOID_DIST: f32 = 30.0;
-const BOID_SENSING_RADIUS: f32 = 100.0;
-
-#[derive(Component, PartialEq)]
-struct Boid;
-
-#[derive(Component, Deref, DerefMut)]
-struct Velocity(Vec2);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(MousePosPlugin::SingleCamera)
+        // .add_plugin(MousePosPlugin::SingleCamera)
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_startup_system_set(
             SystemSet::new()
                 .with_system(setup_camera)
-                .with_system(setup_boids),
+                .with_system(boids::setup_boids),
         )
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
-                .with_system(boid_system),
+                // .with_system(move_boid_towards_perceived_scenter_of_mass)
+                // .with_system(keep_distance_from_boids)
+                .with_system(boids::boid_system),
         )
         // .add_system(update_scoreboard)
         .add_system(bevy::window::close_on_esc)
@@ -45,71 +35,6 @@ fn main() {
 fn setup_camera(mut commands: Commands) {
     commands.spawn_bundle(Camera2dBundle::default());
 }
-
-fn setup_boids(mut commands: Commands) {
-    let mut rng = rand::thread_rng();
-    for _ in 0..NUM_BOIDS {
-        commands
-            .spawn()
-            .insert(Boid)
-            .insert_bundle(SpriteBundle {
-                transform: Transform {
-                    scale: BOID_SIZE,
-                    translation: Vec3::new(
-                        rng.gen_range(-700.0..700.0),
-                        rng.gen_range(-300.0..300.0),
-                        1.,
-                    ),
-                    ..default()
-                },
-                sprite: Sprite {
-                    color: BOID_COLOR,
-                    ..default()
-                },
-                ..default()
-            })
-            .insert(Velocity(
-                Vec2::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0)).normalize()
-                    * BOID_SPEED,
-            ));
-    }
-}
-
-fn boid_system(mut query: Query<(Entity, &mut Transform, &mut Velocity), With<Boid>>) {}
-
-// fn apply_velocity(mut query: Query<(&mut Transform, &mut Velocity)>) {
-//     for (mut transform, mut velocity) in &mut query {
-//         if velocity.length() > BOID_SPEED {
-//             velocity.0 = velocity.0.normalize() * BOID_SPEED;
-//         }
-//         transform.translation.x += velocity.x * TIME_STEP;
-//         transform.translation.y += velocity.y * TIME_STEP;
-//     }
-// }
-
-// fn move_boid_towards_perceived_scenter_of_mass(
-//     mut query: Query<(Entity, &Transform, &mut Velocity), With<Boid>>,
-// ) {
-//     let boids: Vec<(Entity, Vec3)> = query.iter().map(|x| (x.0, x.1.translation)).collect();
-//     for (entity, transform, mut velocity) in &mut query {
-//         let mut arr = Vec3::new(0.0, 0.0, 0.0);
-//         let mut len: u32 = 0;
-//         for (e, translation) in boids.to_owned() {
-//             if e != entity && transform.translation.distance(translation) < BOID_SENSING_RADIUS {
-//                 arr += translation;
-//                 len += 1;
-//             }
-//         }
-//         let perceived_center = arr / len as f32;
-//         let direction = Vec2::new(
-//             perceived_center.x - transform.translation.x,
-//             perceived_center.y - transform.translation.y,
-//         )
-//         .normalize();
-//         velocity.x += direction.x * BOID_ACCELERATION * 0.5;
-//         velocity.y += direction.y * BOID_ACCELERATION * 0.5;
-//     }
-// }
 
 // fn keep_distance_from_boids(mut query: Query<(Entity, &Transform, &mut Velocity), With<Boid>>) {
 //     let boids: Vec<(Entity, Vec3)> = query.iter().map(|x| (x.0, x.1.translation)).collect();
@@ -161,11 +86,11 @@ fn boid_system(mut query: Query<(Entity, &mut Transform, &mut Velocity), With<Bo
 // }
 
 fn cursor_grab_system(
-    mut windows: ResMut<Windows>,
+    mut window: ResMut<Windows>,
     btn: Res<Input<MouseButton>>,
     key: Res<Input<KeyCode>>,
 ) {
-    let window = windows.get_primary_mut().unwrap();
+    let window = window.get_primary_mut().unwrap();
 
     if btn.just_pressed(MouseButton::Left) {
         window.set_cursor_lock_mode(true);
